@@ -10,7 +10,7 @@ from lxml import html
 
 error_message = "There are no cities or mayors with that last name"
 base_domain = "http://usmayors.org"
-base_template = "http://usmayors.org/database_searchID.asp?idnumber=%d" 
+base_template = "http://data.usmayors.org/database_searchID.asp?idnumber=%d"
 
 field_map = {
     "next general election": "next_election",
@@ -50,6 +50,8 @@ def get_mayor(id, uri_template=base_template):
         key = data_cell.text.strip().replace(':','').lower()
         key = field_map.get(key, key)
         value_cell = data_cell.cssselect('b')
+        if not value_cell:
+            value_cell = data_cell.cssselect('a')
         if value_cell:
             val = value_cell[0].text_content().strip()
             mayor_data[key] = val
@@ -62,7 +64,7 @@ def get_mayor(id, uri_template=base_template):
         mayor_data['next_election'] = parsed_next_election.strftime("%Y-%m-%d") 
 
     img_path = main_row.getchildren()[2].cssselect('img')[0].attrib['src']    
-    mayor_data['img_url'] = base_domain + img_path
+    mayor_data['img_url'] = img_path
 
     for k, v in mayor_data.items():
         if hasattr(v, 'encode'):
