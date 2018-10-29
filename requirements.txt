@@ -1,7 +1,8 @@
-certifi==2018.1.18
+certifi==2018.10.15
 chardet==3.0.4
 cssselect==1.0.3
-idna==2.6
-lxml==4.1.1
-requests==2.18.4
-urllib3==1.22
+idna==2.7
+lxml==4.2.5
+pkg-resources==0.0.0
+requests==2.20.0
+urllib3==1.24
