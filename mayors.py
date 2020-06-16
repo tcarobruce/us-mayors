@@ -88,7 +88,6 @@ def get_mayors_for_state(state):
     response.raise_for_status()
     root = html.fromstring(response.content.decode('latin1'))
 
-    print("DOING " + state)
     for node in root.cssselect('div.post-content ul'):
         try:
             result = _get_mayor_from_table(node)
