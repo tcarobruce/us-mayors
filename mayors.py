@@ -13,19 +13,67 @@ from os.path import splitext
 import requests
 from lxml import html
 
-ALL_STATES = """
-    AL AK AZ AR CA CO CT DC DE FL GA GU HI ID IL IN IA KS KY LA ME MD MA MI
-    MN MO MP MS MT NE NV NH NJ NM NY NC ND OH OK OR PA PR RI SC SD TN TX UT
-    VT VA WA WV WI WY""".split()
-
-BASE_URL = "http://legacy.usmayors.org/"
-SEARCH_URL = "http://legacy.usmayors.org/meetmayors/mayorsatglance.asp"
-
-FIELD_MAP = {
-    "next mayoral election": "next_election",
-    "mayor's e-mail address": "email",
-    "city's web site": "city_site_url",
+STATES = {
+    "AK": "Alaska",
+    "AL": "Alabama",
+    "AR": "Arkansas",
+    "AS": "American Samoa",
+    "AZ": "Arizona",
+    "CA": "California",
+    "CO": "Colorado",
+    "CT": "Connecticut",
+    "DC": "District of Columbia",
+    "DE": "Delaware",
+    "FL": "Florida",
+    "GA": "Georgia",
+    "GU": "Guam",
+    "HI": "Hawaii",
+    "IA": "Iowa",
+    "ID": "Idaho",
+    "IL": "Illinois",
+    "IN": "Indiana",
+    "KS": "Kansas",
+    "KY": "Kentucky",
+    "LA": "Louisiana",
+    "MA": "Massachusetts",
+    "MD": "Maryland",
+    "ME": "Maine",
+    "MI": "Michigan",
+    "MN": "Minnesota",
+    "MO": "Missouri",
+    "MP": "N. Mariana Islands",
+    "MS": "Mississippi",
+    "MT": "Montana",
+    "NC": "North Carolina",
+    "ND": "North Dakota",
+    "NE": "Nebraska",
+    "NH": "New Hampshire",
+    "NJ": "New Jersey",
+    "NM": "New Mexico",
+    "NV": "Nevada",
+    "NY": "New York",
+    "OH": "Ohio",
+    "OK": "Oklahoma",
+    "OR": "Oregon",
+    "PA": "Pennsylvania",
+    "PR": "Puerto Rico",
+    "RI": "Rhode Island",
+    "SC": "South Carolina",
+    "SD": "South Dakota",
+    "TN": "Tennessee",
+    "TX": "Texas",
+    "UT": "Utah",
+    "VA": "Virginia",
+    "VI": "Virgin Islands",
+    "VT": "Vermont",
+    "WA": "Washington",
+    "WI": "Wisconsin",
+    "WV": "West Virginia",
+    "WY": "Wyoming",
 }
+BASE_URL = "http://usmayors.org/"
+SEARCH_URL = "https://www.usmayors.org/mayors/meet-the-mayors/"
+
 
 CSV_FIELDS = '''
     name email phone bio_url img_url city state population
@@ -33,14 +81,19 @@ CSV_FIELDS = '''
 
 
 def get_mayors_for_state(state):
-    payload = {'mode': 'search_db', 'State': state}
-    response = requests.post(SEARCH_URL, data=payload)
+    state_name = STATES[state]
+    payload = {'submit': 'Search', 'searchTerm': state_name}
+    headers = {"User-Agent": "mayors-scraper/0.0.1"}
+    response = requests.post(SEARCH_URL, data=payload, headers=headers)
     response.raise_for_status()
-    root = html.fromstring(response.content)
+    root = html.fromstring(response.content.decode('latin1'))
 
-    for node in root.cssselect('table.pagesSectionBodyTightBorder'):
+    print("DOING " + state)
+    for node in root.cssselect('div.post-content ul'):
         try:
-            yield _get_mayor_from_table(node)
+            result = _get_mayor_from_table(node)
+            if result and result["state"] == state:
+                yield result
         except Exception:
             print("ERROR doing {}".format(state))
             import traceback
@@ -48,47 +101,56 @@ def get_mayors_for_state(state):
             continue
 
 
-def _get_mayor_from_table(table):
+def _get_mayor_from_table(node):
+    # Text example:
+    # 1 Ethan Berkowitz
+    # 2 Anchorage, AK
+    # 3 Population: 291,538
+    # 4 Web Site
+    # 5 Next Election Date: 04/06/2021
+    # 6 Bio
+    # 7 Phone:
+    # 8 907-343-7100
+    # 9 Email:
+    # 10 mayor@muni.org
+    bold = node.cssselect("b")[0]
+    if bold is None or not bold.text or not bold.text.strip():
+        # empty name, vacant or unknown
+        return None
+
     mayor_data = {}
-    main_row = table.getchildren()[0]
-    first_cell = main_row.getchildren()[0]
+    text = (s.strip() for s in node.itertext() if s.strip())
+    links = (a.attrib["href"] for a in node.cssselect("a"))
 
-    name_and_city_state = first_cell.cssselect('strong')[0]
-    [name, city_state] = name_and_city_state.xpath('text()')
-    mayor_data['name'] = name
-    [city, state] = city_state.split(', ')
-    mayor_data['city'] = city
-    mayor_data['state'] = state
+    mayor_data["img_url"] = node.cssselect("img")[0].attrib["src"]
 
-    bio_url = first_cell.cssselect('a')
-    if bio_url:
-        mayor_data['bio_url'] = bio_url[0].attrib['href']
+    mayor_data["name"] = next(text)
+    city_state = next(text)
 
-    for data_cell in first_cell.cssselect('table tr td'):
-        key, value = data_cell.text_content().split(':', 1)
-        key = key.strip().lower()
-        key = FIELD_MAP.get(key, key)
-        mayor_data[key] = value.strip()
+    mayor_data["city"], mayor_data["state"] = city_state.split(", ")
 
-    mayor_data['population'] = mayor_data.get('population', '').replace(',', '')
+    mayor_data["population"] = next(text).replace("Population: ", "").replace(",", "")
 
-    mayor_data['email'] = mayor_data.get('email', '').replace('mailto:', '')
+    mayor_data["city_site_url"] = next(links)
+    next(text)  # skip "Web Site" text
 
-    next_election = mayor_data.get('next_election')
+    next_election = next(text).replace("Next Election Date: ", "")
     if next_election:
         try:
             parsed_next_election = datetime.strptime(next_election, "%m/%d/%Y")
-            mayor_data['next_election'] = parsed_next_election.strftime("%Y-%m-%d")
+            mayor_data["next_election"] = parsed_next_election.strftime("%Y-%m-%d")
         except ValueError:
             pass
 
-    img_path = main_row.getchildren()[2].cssselect('img')[0].attrib['src']
-    mayor_data['img_url'] = BASE_URL + img_path.lstrip('/')
+    mayor_data["bio_url"] = next(links)
+
+    mayor_data["phone"] = next(links).replace("tel:", "")
+    mayor_data["email"] = next(links).replace("mailto:", "")
 
     return mayor_data
 
 
-def get_mayors(states=ALL_STATES):
+def get_mayors(states=STATES):
     for state in states:
         for mayor in get_mayors_for_state(state):
             yield mayor
@@ -112,7 +174,7 @@ def parse_arguments():
     parser.add_argument('out', type=argparse.FileType('w', encoding="UTF-8"),
                         default='-')
     parser.add_argument('--format', choices=['csv', 'json'])
-    parser.add_argument('--state', nargs='*', default=ALL_STATES)
+    parser.add_argument('--state', nargs='*', default=STATES.keys())
 
     args = parser.parse_args()
 
