@@ -14,6 +14,7 @@ import requests
 from lxml import html
 import pandas as pd
 import numpy as np
+import tqdm
 
 STATES = {
     "AK": "Alaska",
@@ -152,8 +153,11 @@ def _get_mayor_from_table(node):
 
 
 def get_mayors(states=STATES):
-    for state in states:
-        for mayor in get_mayors_for_state(state):
+    states = list(states)
+    pbar = tqdm.tqdm(range(len(states)), desc='description', position=0)
+    for i in pbar:
+        pbar.set_description("Current State - %s" % str(states[i]))
+        for mayor in get_mayors_for_state(states[i]):
             yield mayor
 
 def write_to_csv(mayors, out):
