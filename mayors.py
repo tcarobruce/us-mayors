@@ -163,14 +163,18 @@ def write_to_csv(mayors, out):
         with open(out, 'r') as read_file:
             reader = csv.DictReader(read_file)
             data = [row for row in reader]
-        with open(out, 'a', newline='') as write_file:
-            writer = csv.DictWriter(write_file, CSV_FIELDS)
-            if len(data) == 0:
+        if len(data) == 0:
+            with open(out, 'w') as write_file:
+                writer = csv.DictWriter(write_file, CSV_FIELDS)
                 writer.writeheader()
-            
-            for mayor in mayors:
-                if mayor not in data:
+                for mayor in mayors:
                     writer.writerow(mayor)
+        else:
+            with open(out, 'a') as write_file:
+                writer = csv.DictWriter(write_file, CSV_FIELDS)
+                for mayor in mayors:
+                    if mayor not in data:
+                        writer.writerow(mayor)
         
          
         ### using pandas
