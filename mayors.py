@@ -13,6 +13,7 @@ import os
 import requests
 from lxml import html
 import pandas as pd
+import numpy as np
 
 STATES = {
     "AK": "Alaska",
@@ -156,19 +157,38 @@ def get_mayors(states=STATES):
             yield mayor
 
 def write_to_csv(mayors, out):
-    # if os.path.isfile(out):
-    #     with open(out, 'r') as f:
-    #         reader = csv.reader(f)
-    #         data = set(tuple(row) for row in reader)
-
-    #     with open(out, 'a', newline='') as f:
-    #         writer = csv.writer(f)
+    
+    if os.path.isfile(out):
+        ### Using List of Dictionary to Check
+        with open(out, 'r') as read_file:
+            reader = csv.DictReader(read_file)
+            data = [row for row in reader]
+        with open(out, 'a', newline='') as write_file:
+            writer = csv.DictWriter(write_file, CSV_FIELDS)
+            if len(data) == 0:
+                writer.writeheader()
+            
+            for mayor in mayors:
+                if mayor not in data:
+                    writer.writerow(mayor)
         
-        
-    w = csv.DictWriter(out, CSV_FIELDS)
-    w.writeheader()
-    for mayor in mayors:
-        w.writerow(mayor)
+         
+        ### using pandas
+        # df1 = pd.read_csv(out)
+        # df2 = pd.DataFrame(mayors)
+        # df1 = df1.replace('',np.nan,regex = True)
+        # df2 = df2.replace('',np.nan,regex = True)
+        # df2['population'] = df2['population'].astype('int64')
+        # pd.set_option('display.max_rows', None)
+        # df3 = pd.concat([df1, df2]).drop_duplicates(subset=None, keep="first")
+        # print(len(df3) == len(df1))
+        # df3.to_csv(out, index=False)
+    else:
+        with open(out, 'w') as csv_file:
+            w = csv.DictWriter(csv_file, CSV_FIELDS)
+            w.writeheader()
+            for mayor in mayors:
+                w.writerow(mayor)
 
 
 def write_to_json(mayors, out):
@@ -184,7 +204,6 @@ def parse_arguments():
     parser.add_argument('--state', nargs='*', default=STATES.keys(), help='2 letter acronym of State')
 
     args = parser.parse_args()
-    # print(args)
     # guess format from file extension
     if args.format is None:
         fn = args.out.name
