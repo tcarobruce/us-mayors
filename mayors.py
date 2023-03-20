@@ -9,9 +9,10 @@ import csv
 import json
 from datetime import datetime
 from os.path import splitext
-
+import os
 import requests
 from lxml import html
+import pandas as pd
 
 STATES = {
     "AK": "Alaska",
@@ -154,8 +155,16 @@ def get_mayors(states=STATES):
         for mayor in get_mayors_for_state(state):
             yield mayor
 
-
 def write_to_csv(mayors, out):
+    # if os.path.isfile(out):
+    #     with open(out, 'r') as f:
+    #         reader = csv.reader(f)
+    #         data = set(tuple(row) for row in reader)
+
+    #     with open(out, 'a', newline='') as f:
+    #         writer = csv.writer(f)
+        
+        
     w = csv.DictWriter(out, CSV_FIELDS)
     w.writeheader()
     for mayor in mayors:
@@ -170,13 +179,12 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Scrape US mayoral data from usmayors.org")
 
-    parser.add_argument('out', type=argparse.FileType('w', encoding="UTF-8"),
-                        default='-')
-    parser.add_argument('--format', choices=['csv', 'json'])
-    parser.add_argument('--state', nargs='*', default=STATES.keys())
+    parser.add_argument('out', type=str, default='-', help='Name of output file')
+    parser.add_argument('--format', choices=['csv', 'json'], help='choosing the format')
+    parser.add_argument('--state', nargs='*', default=STATES.keys(), help='2 letter acronym of State')
 
     args = parser.parse_args()
-
+    # print(args)
     # guess format from file extension
     if args.format is None:
         fn = args.out.name
