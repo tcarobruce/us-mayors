@@ -82,6 +82,7 @@ CSV_FIELDS = '''
     name email phone bio_url img_url city state population
     city_site_url next_election'''.split()
 
+OVERWRITE = False
 
 def get_mayors_for_state(state):
     state_name = STATES[state]
@@ -161,24 +162,30 @@ def get_mayors(states=STATES):
             yield mayor
 
 def write_to_csv(mayors, out):
-    
+    mayors = list(mayors)
     if os.path.isfile(out):
         ### Using List of Dictionary to Check
         with open(out, 'r') as read_file:
             reader = csv.DictReader(read_file)
             data = [row for row in reader]
-        if len(data) == 0:
-            with open(out, 'w') as write_file:
-                writer = csv.DictWriter(write_file, CSV_FIELDS)
-                writer.writeheader()
-                for mayor in mayors:
+            
+        
+        if len(data) == 0 or (list(data[0].keys()) != mayors[0].keys()):
+            OVERWRITE = True
+            
+            
+    if OVERWRITE:
+        with open(out, 'w') as csv_file:
+            w = csv.DictWriter(csv_file, CSV_FIELDS)
+            w.writeheader()
+            for mayor in mayors:
+                w.writerow(mayor)
+    else:
+        with open(out, 'a') as write_file:
+            writer = csv.DictWriter(write_file, CSV_FIELDS)
+            for mayor in mayors:
+                if mayor not in data:
                     writer.writerow(mayor)
-        else:
-            with open(out, 'a') as write_file:
-                writer = csv.DictWriter(write_file, CSV_FIELDS)
-                for mayor in mayors:
-                    if mayor not in data:
-                        writer.writerow(mayor)
         
          
         ### using pandas
@@ -191,12 +198,6 @@ def write_to_csv(mayors, out):
         # df3 = pd.concat([df1, df2]).drop_duplicates(subset=None, keep="first")
         # print(len(df3) == len(df1))
         # df3.to_csv(out, index=False)
-    else:
-        with open(out, 'w') as csv_file:
-            w = csv.DictWriter(csv_file, CSV_FIELDS)
-            w.writeheader()
-            for mayor in mayors:
-                w.writerow(mayor)
 
 
 def write_to_json(mayors, out):
