@@ -215,7 +215,7 @@ def parse_arguments():
     args = parser.parse_args()
     # guess format from file extension
     if args.format is None:
-        fn = args.out.name
+        fn = args.out
         if fn != '<stdout>':
             _, ext = splitext(fn)
             args.format = ext[1:]
