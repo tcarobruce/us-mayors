@@ -8,6 +8,7 @@ import argparse
 import csv
 import json
 from datetime import datetime
+from datetime import date
 from os.path import splitext
 import os
 import requests
@@ -80,9 +81,9 @@ SEARCH_URL = "https://www.usmayors.org/mayors/meet-the-mayors/"
 
 CSV_FIELDS = '''
     name email phone bio_url img_url city state population
-    city_site_url next_election'''.split()
+    city_site_url next_election last_update_date'''.split()
 
-OVERWRITE = False
+OVERWRITE = True
 
 def get_mayors_for_state(state):
     state_name = STATES[state]
@@ -149,7 +150,6 @@ def _get_mayor_from_table(node):
 
     mayor_data["phone"] = next(links).replace("tel:", "")
     mayor_data["email"] = next(links).replace("mailto:", "")
-
     return mayor_data
 
 
@@ -162,29 +162,40 @@ def get_mayors(states=STATES):
             yield mayor
 
 def write_to_csv(mayors, out):
+    global OVERWRITE
     mayors = list(mayors)
+    data = []
     if os.path.isfile(out):
         ### Using List of Dictionary to Check
         with open(out, 'r') as read_file:
             reader = csv.DictReader(read_file)
-            data = [row for row in reader]
+            # Only grab headers that we want to compare
+            headers = reader.fieldnames
+            if 'last_update_date' in headers:
+                headers.remove('last_update_date')
+            for row in reader:
+                row_data = {header: row[header] for header in headers}
+                data.append(row_data)
             
-        
-        if len(data) == 0 or (list(data[0].keys()) != mayors[0].keys()):
-            OVERWRITE = True
-            
+        if len(data) != 0 and (set(data[0].keys()) == set(mayors[0].keys())):
+            OVERWRITE = False
             
     if OVERWRITE:
         with open(out, 'w') as csv_file:
             w = csv.DictWriter(csv_file, CSV_FIELDS)
             w.writeheader()
             for mayor in mayors:
+                # Add date stamp to data
+                mayor["last_update_date"] = str(date.today())
                 w.writerow(mayor)
     else:
         with open(out, 'a') as write_file:
             writer = csv.DictWriter(write_file, CSV_FIELDS)
             for mayor in mayors:
+                # Compare the current mayor to new mayors
                 if mayor not in data:
+                    # Add date stamp to data
+                    mayor["last_update_date"] = str(date.today())
                     writer.writerow(mayor)
         
          
