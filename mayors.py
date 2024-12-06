@@ -100,6 +100,15 @@ def get_mayors_for_state(state):
             continue
 
 
+def decode_email(encoded):
+    prefix = "/cdn-cgi/l/email-protection#"
+    if not encoded.startswith(prefix):
+        return encoded
+    encoded = encoded[len(prefix):]
+    as_ints = [int(encoded[i:i+2], 16) for i in range(0, len(encoded), 2)]
+    return "".join([chr(as_ints[0] ^ c) for c in as_ints[1:]])
+
+
 def _get_mayor_from_table(node):
     # Text example:
     # 1 Ethan Berkowitz
@@ -144,7 +153,7 @@ def _get_mayor_from_table(node):
     mayor_data["bio_url"] = next(links)
 
     mayor_data["phone"] = next(links).replace("tel:", "")
-    mayor_data["email"] = next(links).replace("mailto:", "")
+    mayor_data["email"] = decode_email(next(links).replace("mailto:", ""))
 
     return mayor_data
 
