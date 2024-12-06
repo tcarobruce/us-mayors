@@ -8,7 +8,7 @@ import argparse
 import csv
 import json
 from datetime import datetime
-from os.path import splitext
+from os.path import splitext, exists
 
 import requests
 from lxml import html
@@ -80,13 +80,28 @@ CSV_FIELDS = '''
     city_site_url next_election'''.split()
 
 
-def get_mayors_for_state(state):
+def get_cached(state):
     state_name = STATES[state]
     payload = {'submit': 'Search', 'searchTerm': state_name}
     headers = {"User-Agent": "mayors-scraper/0.0.1"}
-    response = requests.post(SEARCH_URL, data=payload, headers=headers)
-    response.raise_for_status()
-    root = html.fromstring(response.content.decode('latin1'))
+    ts = datetime.now().strftime("%Y%m%d")
+    cache_file = f"_cache_{state.lower()}_{ts}.txt"
+    if exists(cache_file):
+        with open(cache_file) as f:
+            text = f.read()
+    else:
+        response = requests.post(SEARCH_URL, data=payload, headers=headers)
+        response.raise_for_status()
+        text = response.content.decode('latin1')
+        with open(cache_file, 'w') as f:
+            f.write(text)
+
+    return text
+
+
+def get_mayors_for_state(state):
+
+    root = html.fromstring(get_cached(state))
 
     for node in root.cssselect('div.post-content ul'):
         try:
